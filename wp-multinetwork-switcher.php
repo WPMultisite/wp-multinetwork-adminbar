@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: WP Multi Network Admin Bar
+ * Plugin Name: WP Multi-Network Switcher
  * Plugin URI: https://wpmultinetwork.com
  * Description: Display current network information in admin bar and provide network switching functionality for WP Multi Network environments.
  * Version: 1.0.0
  * Author: WPMultiNetwork.com
  * Author URI: https://wpmultinetwork.com
- * Text Domain: wp-multinetwork-adminbar
+ * Text Domain: wp-multinetwork-switcher
  * Domain Path: /languages
  * Requires at least: 5.0
  * Tested up to: 6.8
@@ -25,7 +25,7 @@ if (!defined('ABSPATH')) {
 define('WPMN_ADMINBAR_VERSION', '1.0.0');
 define('WPMN_ADMINBAR_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPMN_ADMINBAR_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('WPMN_ADMINBAR_TEXT_DOMAIN', 'wp-multinetwork-adminbar');
+define('WPMN_ADMINBAR_TEXT_DOMAIN', 'wp-multinetwork-switcher');
 
 class WP_MultiNetwork_AdminBar {
     
