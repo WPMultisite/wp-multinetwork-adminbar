@@ -1,4 +1,4 @@
-=== WP Multi Network Admin Bar ===
+=== WP Multi Network Switcher ===
 Contributors: wpmultinetwork
 Tags: multisite, multi-network, admin bar, network switching, network management
 Requires at least: 5.0
@@ -13,7 +13,7 @@ Display current network information in admin bar and provide seamless network sw
 
 == Description ==
 
-**WP Multi Network Admin Bar** enhances the WordPress admin experience for Multi Network environments by adding intelligent network identification and switching capabilities directly to the admin bar.
+**WP Multi Network Switcher** enhances the WordPress admin experience for Multi Network environments by adding intelligent network identification and switching capabilities directly to the admin bar.
 
 = Key Features =
 
@@ -87,14 +87,14 @@ Want to contribute a translation? Visit our [GitHub repository](https://github.c
 
 1. Log in to your WordPress admin panel
 2. Navigate to Plugins → Add New
-3. Search for "WP Multi Network Admin Bar"
+3. Search for "WP Multi Network Switcher"
 4. Click "Install Now" and then "Activate"
 5. The plugin will automatically detect your Multi Network setup
 
 = Manual Installation =
 
 1. Download the plugin zip file
-2. Extract the files to your `/wp-content/plugins/wp-multinetwork-adminbar/` directory
+2. Extract the files to your `/wp-content/plugins/wp-multinetwork-switcher/` directory
 3. Activate the plugin through the 'Plugins' menu in WordPress
 4. Ensure you have WP Multi Network plugin installed and configured
 
@@ -103,7 +103,7 @@ Want to contribute a translation? Visit our [GitHub repository](https://github.c
 For Multi Network setups, you should activate this plugin at the network level:
 
 1. Go to Network Admin → Plugins
-2. Find "WP Multi Network Admin Bar"
+2. Find "WP Multi Network Switcher"
 3. Click "Network Activate"
 
 == Frequently Asked Questions ==
@@ -168,13 +168,13 @@ Initial release of WP Multi Network Admin Bar. This plugin enhances your Multi N
 
 For support, feature requests, and bug reports, please visit:
 
-* **Documentation**: https://wpmultinetwork.com/document/admin-bar
+* **Documentation**: https://wpmultinetwork.com/document/wp-multinetwork-switcher
 * **Support Forum**: https://wpmultinetwork.com/support
-* **GitHub Issues**: https://github.com/wpmultisite/wp-multinetwork-adminbar/issues
+* **GitHub Issues**: https://github.com/wpmultisite/wp-multinetwork-switcher/issues
 
 == Contributing ==
 
-We welcome contributions! Please see our [contributing guidelines](https://github.com/wpmultisite/wp-multinetwork-adminbar/blob/main/CONTRIBUTING.md) on GitHub.
+We welcome contributions! Please see our [contributing guidelines](https://github.com/wpmultisite/wp-multinetwork-switcher/blob/main/CONTRIBUTING.md) on GitHub.
 
 == Privacy Policy ==
 
