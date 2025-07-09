@@ -3,7 +3,7 @@
  * Plugin Name: WP Multi-Network Switcher
  * Plugin URI: https://wpmultinetwork.com
  * Description: Display current network information in admin bar and provide network switching functionality for WP Multi Network environments.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: WPMultiNetwork.com
  * Author URI: https://wpmultinetwork.com
  * Text Domain: wp-multinetwork-switcher
@@ -20,16 +20,14 @@ if (!defined("ABSPATH")) {
     exit();
 }
 
-define("WPMN_ADMINBAR_VERSION", "1.0.2");
-define("WPMN_ADMINBAR_PLUGIN_DIR", plugin_dir_path(__FILE__));
-define("WPMN_ADMINBAR_PLUGIN_URL", plugin_dir_url(__FILE__));
-define("WPMN_ADMINBAR_TEXT_DOMAIN", "wp-multinetwork-switcher");
+define("WPMN_SWITCHER_VERSION", "1.0.3");
+define("WPMN_SWITCHER_PLUGIN_DIR", plugin_dir_path(__FILE__));
+define("WPMN_SWITCHER_PLUGIN_URL", plugin_dir_url(__FILE__));
 
-class WP_MultiNetwork_AdminBar
+class WP_MultiNetwork_Switcher
 {
     private static $instance = null;
     private $networks_cache = [];
-    private $admin_color_scheme = "fresh";
 
     public static function getInstance()
     {
@@ -52,8 +50,6 @@ class WP_MultiNetwork_AdminBar
             return;
         }
 
-        $this->detectAdminColorScheme();
-
         add_action("admin_bar_menu", [$this, "addNetworkInfoToAdminBar"], 100);
         add_action("admin_enqueue_scripts", [$this, "enqueueAdminAssets"]);
         add_action("wp_enqueue_scripts", [$this, "enqueueAdminAssets"]);
@@ -61,12 +57,16 @@ class WP_MultiNetwork_AdminBar
         add_action("wp_ajax_get_network_info", [$this, "getNetworkInfo"]);
         add_action("admin_head", [$this, "addAdminHeadStyles"]);
         add_action("wp_head", [$this, "addAdminHeadStyles"]);
+        add_action("wp_dashboard_setup", [$this, "addDashboardWidget"]);
+        add_action("wp_network_dashboard_setup", [$this, "addDashboardWidget"]);
+        add_action("admin_enqueue_scripts", [$this, "enqueueDashboardAssets"]);
+        add_action("admin_print_styles", [$this, "printDashboardStyles"]);
     }
 
     private function loadTextDomain()
     {
         load_plugin_textdomain(
-            WPMN_ADMINBAR_TEXT_DOMAIN,
+            "wp-multinetwork-switcher",
             false,
             dirname(plugin_basename(__FILE__)) . "/languages"
         );
@@ -75,79 +75,6 @@ class WP_MultiNetwork_AdminBar
     private function isMultiNetwork()
     {
         return is_multisite() && function_exists("get_networks");
-    }
-
-    private function detectAdminColorScheme()
-    {
-        $current_user = wp_get_current_user();
-        if ($current_user) {
-            $user_color_scheme = get_user_meta(
-                $current_user->ID,
-                "admin_color",
-                true
-            );
-            $this->admin_color_scheme = $user_color_scheme
-                ? $user_color_scheme
-                : "fresh";
-        }
-    }
-
-    private function getColorSchemeColors()
-    {
-        $schemes = [
-            "fresh" => [
-                "primary" => "#0073aa",
-                "secondary" => "#72aee6",
-                "hover" => "#005a87",
-                "background" => "rgba(240, 245, 250, 0.1)",
-            ],
-            "light" => [
-                "primary" => "#0073aa",
-                "secondary" => "#72aee6",
-                "hover" => "#005a87",
-                "background" => "rgba(240, 245, 250, 0.1)",
-            ],
-            "blue" => [
-                "primary" => "#096484",
-                "secondary" => "#4796b3",
-                "hover" => "#07526c",
-                "background" => "rgba(70, 150, 179, 0.1)",
-            ],
-            "midnight" => [
-                "primary" => "#e14d43",
-                "secondary" => "#77a6b9",
-                "hover" => "#dd382d",
-                "background" => "rgba(119, 166, 185, 0.1)",
-            ],
-            "sunrise" => [
-                "primary" => "#d1864a",
-                "secondary" => "#c8b03c",
-                "hover" => "#b77729",
-                "background" => "rgba(200, 176, 60, 0.1)",
-            ],
-            "ectoplasm" => [
-                "primary" => "#a3b745",
-                "secondary" => "#c8d035",
-                "hover" => "#8b9a3e",
-                "background" => "rgba(200, 208, 53, 0.1)",
-            ],
-            "ocean" => [
-                "primary" => "#627c83",
-                "secondary" => "#9ebaa0",
-                "hover" => "#576e74",
-                "background" => "rgba(158, 186, 160, 0.1)",
-            ],
-            "coffee" => [
-                "primary" => "#c7a589",
-                "secondary" => "#9ea476",
-                "hover" => "#b79570",
-                "background" => "rgba(158, 164, 118, 0.1)",
-            ],
-        ];
-
-        return isset($schemes[$this->admin_color_scheme])
-            ? $schemes[$this->admin_color_scheme]
-            : $schemes["fresh"];
     }
 
     public function addNetworkInfoToAdminBar($wp_admin_bar)
@@ -170,7 +97,7 @@ class WP_MultiNetwork_AdminBar
             "meta" => [
                 "class" => "wp-multinetwork-switcher",
                 "title" => sprintf(
-                    __("Current Network: %s", WPMN_ADMINBAR_TEXT_DOMAIN),
+                    __("Current Network: %s", "wp-multinetwork-switcher"),
                     $current_network["domain"]
                 ),
             ],
@@ -200,7 +127,7 @@ class WP_MultiNetwork_AdminBar
                     "title" => sprintf(
                         __(
                             "Network: %s%s (%d sites)",
-                            WPMN_ADMINBAR_TEXT_DOMAIN
+                            "wp-multinetwork-switcher"
                         ),
                         $network->domain,
                         $network->path,
@@ -221,6 +148,428 @@ class WP_MultiNetwork_AdminBar
                 ],
             ]);
         }
+    }
+
+    public function addDashboardWidget()
+    {
+        if (!current_user_can("manage_network")) {
+            return;
+        }
+
+        wp_add_dashboard_widget(
+            "wpmn_network_dashboard",
+            __("Multi Network Overview", "wp-multinetwork-switcher"),
+            [$this, "renderDashboardWidget"]
+        );
+    }
+
+    public function renderDashboardWidget()
+    {
+        $all_networks = $this->getAllNetworks();
+        $current_network = $this->getCurrentNetworkInfo();
+        $total_sites = 0;
+
+        foreach ($all_networks as $network) {
+            $total_sites += $this->getNetworkSitesCount($network->id);
+        }
+
+        $super_admin_count = $this->getSuperAdminCount();
+
+        echo '<div class="wpmn-dashboard-widget">';
+
+        echo '<div class="wpmn-stats-row">';
+        echo '<div class="wpmn-stat-item">';
+        echo '<div class="wpmn-stat-number">' . count($all_networks) . "</div>";
+        echo '<div class="wpmn-stat-label">' .
+            __("Total Networks", "wp-multinetwork-switcher") .
+            "</div>";
+        echo "</div>";
+
+        echo '<div class="wpmn-stat-item">';
+        echo '<div class="wpmn-stat-number">' . $total_sites . "</div>";
+        echo '<div class="wpmn-stat-label">' .
+            __("Total Sites", "wp-multinetwork-switcher") .
+            "</div>";
+        echo "</div>";
+
+        echo '<div class="wpmn-stat-item">';
+        echo '<div class="wpmn-stat-number">' . $super_admin_count . "</div>";
+        echo '<div class="wpmn-stat-label">' .
+            __("Super Admins", "wp-multinetwork-switcher") .
+            "</div>";
+        echo "</div>";
+        echo "</div>";
+        echo "<h4>" .
+            __("Current Network", "wp-multinetwork-switcher") .
+            "</h4>";
+        if ($current_network) {
+            $favicon_url = $this->getNetworkFavicon($current_network["id"]);
+            echo '<div class="wpmn-current-network">';
+            echo '<div class="wpmn-current-network-info">';
+            if ($favicon_url) {
+                echo '<img src="' .
+                    esc_url($favicon_url) .
+                    '" alt="' .
+                    esc_attr($current_network["site_name"]) .
+                    '" class="wpmn-network-favicon" />';
+            }
+            echo '<div class="wpmn-current-network-details">';
+            echo "<p>" . esc_html($current_network["site_name"]) . "</p>";
+            echo "<p><small>" .
+                esc_html(
+                    $current_network["domain"] . $current_network["path"]
+                ) .
+                "</small></p>";
+            echo "<p>" .
+                sprintf(
+                    __("%d sites", "wp-multinetwork-switcher"),
+                    $this->getNetworkSitesCount($current_network["id"])
+                ) .
+                "</p>";
+            echo "</div>";
+            echo "</div>";
+            echo "</div>";
+        }
+
+        if (count($all_networks) > 1) {
+            echo '<div class="wpmn-network-list">';
+            echo "<h4>" .
+                __("Quick Switch", "wp-multinetwork-switcher") .
+                "</h4>";
+            echo '<div class="wpmn-network-grid">';
+
+            $display_networks = array_slice($all_networks, 0, 5);
+
+            foreach ($display_networks as $network) {
+                $is_current =
+                    $current_network && $network->id == $current_network["id"];
+                $site_count = $this->getNetworkSitesCount($network->id);
+                $site_name = get_network_option(
+                    $network->id,
+                    "site_name",
+                    $network->domain
+                );
+
+                echo '<div class="wpmn-network-item' .
+                    ($is_current ? " current" : "") .
+                    '">';
+                if (!$is_current) {
+                    echo '<a href="' .
+                        esc_url($this->getNetworkSwitchUrl($network)) .
+                        '" class="wpmn-switch-link" data-network-id="' .
+                        $network->id .
+                        '">';
+                }
+                echo '<div class="wpmn-network-name">' .
+                    esc_html($site_name) .
+                    "</div>";
+                echo '<div class="wpmn-network-info">';
+                echo '<span class="wpmn-network-domain">' .
+                    esc_html($network->domain) .
+                    "</span>";
+                echo '<span class="wpmn-network-count">' .
+                    sprintf(
+                        __("%d sites", "wp-multinetwork-switcher"),
+                        $site_count
+                    ) .
+                    "</span>";
+                echo "</div>";
+                if (!$is_current) {
+                    echo "</a>";
+                }
+                echo "</div>";
+            }
+
+            if (count($all_networks) > 6) {
+                echo '<div class="wpmn-network-more">';
+                echo '<span class="wpmn-more-text">' .
+                    sprintf(
+                        __("+ %d more networks", "wp-multinetwork-switcher"),
+                        count($all_networks) - 6
+                    ) .
+                    "</span>";
+                echo "</div>";
+            }
+
+            echo "</div>";
+            echo "</div>";
+        }
+
+        echo '<div class="wpmn-actions">';
+        echo '<a href="' .
+            esc_url(network_admin_url()) .
+            '" class="button button-primary">' .
+            __("Manage Networks", "wp-multinetwork-switcher") .
+            "</a>";
+        echo "</div>";
+
+        echo "</div>";
+    }
+
+    public function printDashboardStyles()
+    {
+        $screen = get_current_screen();
+        if (!$screen || !current_user_can("manage_network")) {
+            return;
+        }
+
+        if (
+            $screen->id === "dashboard" ||
+            $screen->id === "dashboard-network"
+        ) {
+            echo '<style type="text/css">' .
+                $this->getDashboardCSS() .
+                "</style>";
+        }
+    }
+
+    private function getSuperAdminCount()
+    {
+        $cache_key = "wpmn_super_admin_count";
+        $count = wp_cache_get($cache_key);
+
+        if (false === $count) {
+            $super_admins = get_super_admins();
+            $count = count($super_admins);
+            wp_cache_set($cache_key, $count, "", 300);
+        }
+
+        return $count;
+    }
+
+    private function getNetworkFavicon($network_id)
+    {
+        $cache_key = "wpmn_network_favicon_" . $network_id;
+        $favicon_url = wp_cache_get($cache_key);
+
+        if (false === $favicon_url) {
+            $main_site_id = get_main_site_id($network_id);
+
+            if ($main_site_id) {
+                switch_to_blog($main_site_id);
+                $favicon_url = get_site_icon_url(32);
+
+                if (!$favicon_url) {
+                    $favicon_url =
+                        get_template_directory_uri() . "/favicon.ico";
+                    if (!@file_get_contents($favicon_url)) {
+                        $favicon_url = admin_url("images/wordpress-logo.svg");
+                    }
+                }
+
+                restore_current_blog();
+            } else {
+                $favicon_url = admin_url("images/wordpress-logo.svg");
+            }
+
+            wp_cache_set($cache_key, $favicon_url, "", 300);
+        }
+
+        return $favicon_url;
+    }
+
+    public function enqueueDashboardAssets()
+    {
+        $screen = get_current_screen();
+        if (!$screen || !current_user_can("manage_network")) {
+            return;
+        }
+
+        if (
+            $screen->id === "dashboard" ||
+            $screen->id === "dashboard-network"
+        ) {
+            wp_enqueue_script("jquery");
+            wp_add_inline_script("jquery", $this->getDashboardJS());
+        }
+    }
+
+    private function getDashboardCSS()
+    {
+        return "
+        .wpmn-dashboard-widget {
+            padding: 16px;
+        }
+
+        .wpmn-stats-row {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
+        .wpmn-stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .wpmn-stat-number {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .wpmn-stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .wpmn-current-network {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .wpmn-current-network h4 {
+            margin: 0 0 10px 0;
+            color: #0073aa;
+        }
+
+        .wpmn-current-network-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .wpmn-network-favicon {
+            width: 45px;
+            height: 45px;
+            border-radius: 4px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid #c3c4c7;
+            background: #ffffff;
+            padding: 2%;
+        }
+
+        .wpmn-current-network-details p {
+            margin: 5px 0;
+        }
+
+        .wpmn-network-list h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        .wpmn-network-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .wpmn-network-item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            background: #fff;
+            transition: all 0.2s ease;
+        }
+
+        .wpmn-network-item.current {
+            border-color: #0073aa;
+            background: rgba(240, 245, 250, 0.1);
+        }
+
+        .wpmn-network-item a {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .wpmn-network-item:not(.current):hover {
+            border-color: #72aee6;
+            background: #f8f9fa;
+        }
+
+        .wpmn-network-name {
+            font-weight: 400;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .wpmn-network-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .wpmn-network-domain {
+            font-family: monospace;
+        }
+
+        .wpmn-network-count {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .wpmn-network-more {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            color: #666;
+            font-size: 12px;
+            font-style: italic;
+            background: #fafafa;
+        }
+
+        .wpmn-actions {
+            text-align: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        @media (max-width: 600px) {
+            .wpmn-stats-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .wpmn-network-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .wpmn-current-network-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+        ";
+    }
+
+    private function getDashboardJS()
+    {
+        return "
+        jQuery(document).ready(function($) {
+            $('.wpmn-switch-link').on('click', function(e) {
+                e.preventDefault();
+                var link = $(this);
+                var networkId = link.data('network-id');
+
+                if (confirm('" .
+            esc_js(__("Switch to this network?", "wp-multinetwork-switcher")) .
+            "')) {
+                    window.location.href = link.attr('href');
+                }
+            });
+        });
+        ";
     }
 
     private function getCurrentNetworkInfo()
@@ -313,7 +662,7 @@ class WP_MultiNetwork_AdminBar
         $indicator = $is_current ? $this->getDashicon("yes") . " " : "";
 
         return sprintf(
-            '%s<strong>%s</strong> <span class="site-count">(%s)</span>',
+            '%s %s <span class="site-count">(%s)</span>',
             $indicator,
             esc_html($site_name),
             sprintf(
@@ -321,7 +670,7 @@ class WP_MultiNetwork_AdminBar
                     "%d site",
                     "%d sites",
                     $site_count,
-                    WPMN_ADMINBAR_TEXT_DOMAIN
+                    "wp-multinetwork-switcher"
                 ),
                 $site_count
             )
@@ -333,7 +682,7 @@ class WP_MultiNetwork_AdminBar
         return sprintf(
             "%s %s",
             $this->getDashicon("admin-tools"),
-            __("Manage All Networks", WPMN_ADMINBAR_TEXT_DOMAIN)
+            __("Manage All Networks", "wp-multinetwork-switcher")
         );
     }
 
@@ -362,12 +711,14 @@ class WP_MultiNetwork_AdminBar
     public function handleNetworkSwitch()
     {
         if (!check_ajax_referer("network_switch_nonce", "nonce", false)) {
-            wp_send_json_error(__("Invalid nonce.", WPMN_ADMINBAR_TEXT_DOMAIN));
+            wp_send_json_error(
+                __("Invalid nonce.", "wp-multinetwork-switcher")
+            );
         }
 
         if (!current_user_can("manage_network")) {
             wp_send_json_error(
-                __("Insufficient permissions.", WPMN_ADMINBAR_TEXT_DOMAIN)
+                __("Insufficient permissions.", "wp-multinetwork-switcher")
             );
         }
 
@@ -376,13 +727,13 @@ class WP_MultiNetwork_AdminBar
 
         if (!$network) {
             wp_send_json_error(
-                __("Network does not exist.", WPMN_ADMINBAR_TEXT_DOMAIN)
+                __("Network does not exist.", "wp-multinetwork-switcher")
             );
         }
 
         if (!$this->userCanAccessNetwork(get_current_user_id(), $network_id)) {
             wp_send_json_error(
-                __("Access denied to this network.", WPMN_ADMINBAR_TEXT_DOMAIN)
+                __("Access denied to this network.", "wp-multinetwork-switcher")
             );
         }
 
@@ -393,12 +744,14 @@ class WP_MultiNetwork_AdminBar
     public function getNetworkInfo()
     {
         if (!check_ajax_referer("network_switch_nonce", "nonce", false)) {
-            wp_send_json_error(__("Invalid nonce.", WPMN_ADMINBAR_TEXT_DOMAIN));
+            wp_send_json_error(
+                __("Invalid nonce.", "wp-multinetwork-switcher")
+            );
         }
 
         if (!current_user_can("manage_network")) {
             wp_send_json_error(
-                __("Insufficient permissions.", WPMN_ADMINBAR_TEXT_DOMAIN)
+                __("Insufficient permissions.", "wp-multinetwork-switcher")
             );
         }
 
@@ -407,7 +760,7 @@ class WP_MultiNetwork_AdminBar
 
         if (!$network) {
             wp_send_json_error(
-                __("Network does not exist.", WPMN_ADMINBAR_TEXT_DOMAIN)
+                __("Network does not exist.", "wp-multinetwork-switcher")
             );
         }
 
@@ -470,26 +823,29 @@ class WP_MultiNetwork_AdminBar
 
     private function getInlineCSS()
     {
-        $colors = $this->getColorSchemeColors();
-
-        return sprintf(
-            '
+        return '
         #wpadminbar .wp-multinetwork-switcher .ab-item {
             padding: 0 10px !important;
         }
 
         #wpadminbar .network-indicator[data-dashicon]:before {
-            content: "\\f319";
-            font-family: dashicons;
-            font-size: 16px;
-            margin-right: 5px;
-            vertical-align: middle;
+            content: "\f230";
+            position: relative;
+            float: left;
+            font: normal 20px / 1 dashicons;
+            speak: never;
+            padding: 6px 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image: none !important;
+            margin-right: 6px;
+            color: #9ca2a7;
         }
 
         #wpadminbar [data-dashicon="yes"]:before {
             content: "\\f147";
             font-family: dashicons;
-            color: %s;
+            color: #72aee6;
             margin-right: 5px;
         }
 
@@ -500,7 +856,7 @@ class WP_MultiNetwork_AdminBar
         }
 
         #wpadminbar .network-name {
-            font-weight: 600;
+            font-weight: 400;
         }
 
         #wpadminbar .network-count {
@@ -515,17 +871,20 @@ class WP_MultiNetwork_AdminBar
 
         #wpadminbar .wp-multinetwork-switcher .ab-submenu .ab-item {
             line-height: 1.3;
-            padding: 8px 12px !important;
+            padding: 5px 12px !important;
             white-space: normal;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         #wpadminbar .current-network .ab-item {
-            background-color: %s !important;
-            color: %s !important;
+            background-color: rgba(240, 245, 250, 0.1) !important;
+            color: #72aee6 !important;
         }
 
         #wpadminbar .switch-network:hover .ab-item {
-            background-color: %s !important;
+            background-color: #1d2327 !important;
             color: #fff !important;
         }
 
@@ -542,8 +901,8 @@ class WP_MultiNetwork_AdminBar
         }
 
         #wpadminbar .network-admin-link .ab-item {
-            color: %s !important;
-            font-weight: 600;
+            color: #72aee6 !important;
+            font-weight: 400;
         }
 
         #wpadminbar .switching-indicator {
@@ -558,22 +917,16 @@ class WP_MultiNetwork_AdminBar
                 left: -120px;
             }
         }
-        ',
-            $colors["secondary"],
-            $colors["background"],
-            $colors["secondary"],
-            $colors["hover"],
-            $colors["secondary"]
-        );
+        ';
     }
 
     private function getInlineJS()
     {
         $ajax_url = admin_url("admin-ajax.php");
-        $switching_text = __("Switching...", WPMN_ADMINBAR_TEXT_DOMAIN);
+        $switching_text = __("Switching...", "wp-multinetwork-switcher");
         $error_text = __(
             "Error switching network. Please try again.",
-            WPMN_ADMINBAR_TEXT_DOMAIN
+            "wp-multinetwork-switcher"
         );
 
         return sprintf(
@@ -650,12 +1003,12 @@ class WP_MultiNetwork_AdminBar
             $ajax_url,
             $error_text,
             $error_text,
-            esc_js(__("Network Switcher", WPMN_ADMINBAR_TEXT_DOMAIN))
+            esc_js(__("Network Switcher", "wp-multinetwork-switcher"))
         );
     }
 }
 
-WP_MultiNetwork_AdminBar::getInstance();
+WP_MultiNetwork_Switcher::getInstance();
 
 register_activation_hook(__FILE__, function () {
     if (!is_multisite()) {
@@ -663,9 +1016,9 @@ register_activation_hook(__FILE__, function () {
         wp_die(
             __(
                 "This plugin requires WordPress Multisite to be enabled.",
-                WPMN_ADMINBAR_TEXT_DOMAIN
+                "wp-multinetwork-switcher"
             ),
-            __("Plugin Activation Error", WPMN_ADMINBAR_TEXT_DOMAIN),
+            __("Plugin Activation Error", "wp-multinetwork-switcher"),
             ["back_link" => true]
         );
     }
@@ -676,9 +1029,9 @@ register_activation_hook(__FILE__, function () {
         wp_die(
             __(
                 "This plugin requires WordPress 5.0 or higher.",
-                WPMN_ADMINBAR_TEXT_DOMAIN
+                "wp-multinetwork-switcher"
             ),
-            __("Plugin Activation Error", WPMN_ADMINBAR_TEXT_DOMAIN),
+            __("Plugin Activation Error", "wp-multinetwork-switcher"),
             ["back_link" => true]
         );
     }
